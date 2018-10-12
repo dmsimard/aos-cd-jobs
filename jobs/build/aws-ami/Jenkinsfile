@@ -327,7 +327,7 @@ node(TARGET_NODE) {
             sh '''
 [ -e env/ ] || virtualenv env/
 env/bin/pip install --upgrade pip
-env/bin/pip install --upgrade 'ansible==2.6.5' boto boto3
+env/bin/pip install --upgrade 'ansible==2.6.5' boto boto3 ara
 '''
         }
         stage('build') {
@@ -344,7 +344,11 @@ env/bin/pip install --upgrade 'ansible==2.6.5' boto boto3
             }
 
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'ami-build-creds']]) {
-                withEnv(['ANSIBLE_HOST_KEY_CHECKING=False']) {
+                withEnv([
+                    'ANSIBLE_HOST_KEY_CHECKING=False',
+                    'ANSIBLE_CALLBACK_PLUGINS=env/lib/python2.7/site-packages/ara/plugins/callbacks',
+                    'ARA_DATABASE=sqlite:////tmp/ara.sqlite'
+                ]) {
                     sshagent([AWS_SSH_KEY_USER]) {
                         buildlib.with_virtualenv('env') {
 
@@ -383,5 +387,10 @@ Jenkins job: ${env.BUILD_URL}
 """);
         // Re-throw the error in order to fail the job
         throw err
+    } finally {
+        try {
+            archiveArtifacts allowEmptyArchive: true, artifacts: "/tmp/ara.sqlite"
+        } catch (aae) {
+        }
     }
 }
